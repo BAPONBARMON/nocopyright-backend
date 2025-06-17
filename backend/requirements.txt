@@ -1,8 +1,6 @@
 flask
-flask_cors
-moviepy==2.0.0
-imageio==2.31.1
-imageio-ffmpeg==0.4.7
-numpy==1.24.4
-python-dotenv
-tqdm
+flask-cors
+moviepy
+imageio
+imageio-ffmpeg
+numpy
