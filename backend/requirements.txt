@@ -1,4 +1,4 @@
 flask
 flask-cors
-moviepy
+moviepy==2.0.0
 
