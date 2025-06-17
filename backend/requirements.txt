@@ -1,6 +1,3 @@
 flask
-flask-cors
+flask_cors
 moviepy
-imageio
-imageio-ffmpeg
-numpy
