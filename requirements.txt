@@ -1,3 +1,6 @@
-Flask
+flask
+flask-cors
 moviepy
-pydub
+imageio
+imageio-ffmpeg
+numpy
