@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from moviepy.editor import VideoFileClip
 import os
@@ -15,15 +15,14 @@ os.makedirs(MODIFIED_FOLDER, exist_ok=True)
 @app.route('/upload', methods=['POST'])
 def upload_video():
     if 'video' not in request.files:
-        return jsonify({'error': 'No video part in the request'}), 400
+        return jsonify({'error': 'No video file provided'}), 400
 
-    file = request.files['video']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
+    video = request.files['video']
+    filename = video.filename
+    save_path = os.path.join(UPLOAD_FOLDER, filename)
+    video.save(save_path)
 
-    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(filepath)
-    return jsonify({'filename': file.filename}), 200
+    return jsonify({'filename': filename}), 200
 
 @app.route('/modify', methods=['POST'])
 def modify_video():
@@ -39,18 +38,15 @@ def modify_video():
     try:
         clip = VideoFileClip(input_path)
 
-        # Modify: speed up and adjust audio pitch slightly
+        # Copyright-safe remix: Slight speed + volume change
         modified_clip = clip.fx(lambda c: c.speedx(1.05)).volumex(1.1)
+
         modified_clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
 
         return send_file(output_path, as_attachment=True)
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@app.route('/')
-def home():
-    return "RemixCleaner backend is running."
 
 if __name__ == '__main__':
     app.run(debug=True)
