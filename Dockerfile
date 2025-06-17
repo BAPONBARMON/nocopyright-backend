@@ -1,15 +1,21 @@
-FROM python:3.11-slim
+# Base Python image
+FROM python:3.10-slim
 
+# Set working directory
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y ffmpeg && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Install ffmpeg for video/audio processing
+RUN apt-get update && apt-get install -y ffmpeg
 
-RUN pip install --no-cache-dir -r backend/requirements.txt
+# Copy backend code
+COPY backend/ ./backend
 
-EXPOSE 10000
+# Expose Flask port
+EXPOSE 5000
 
+# Run Flask app
 CMD ["python", "backend/app.py"]
