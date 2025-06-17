@@ -1,42 +1,56 @@
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
+from moviepy.editor import VideoFileClip
 import os
-import moviepy.editor as mp
 
 app = Flask(__name__)
 CORS(app)
 
-UPLOAD_FOLDER = 'uploads'
-MODIFIED_FOLDER = 'modified'
+UPLOAD_FOLDER = "uploads"
+MODIFIED_FOLDER = "modified"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(MODIFIED_FOLDER, exist_ok=True)
 
-@app.route('/')
-def home():
-    return 'Backend running ✅'
-
 @app.route('/upload', methods=['POST'])
-def upload():
+def upload_video():
     if 'video' not in request.files:
-        return jsonify({'error': 'No video file'}), 400
-    video = request.files['video']
-    path = os.path.join(UPLOAD_FOLDER, video.filename)
-    video.save(path)
-    return jsonify({'message': 'Uploaded successfully', 'filename': video.filename})
+        return jsonify({'error': 'No video part in the request'}), 400
+
+    file = request.files['video']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(filepath)
+    return jsonify({'filename': file.filename}), 200
 
 @app.route('/modify', methods=['POST'])
-def modify():
+def modify_video():
     data = request.get_json()
     filename = data.get('filename')
-    if not filename:
-        return jsonify({'error': 'No filename provided'}), 400
 
     input_path = os.path.join(UPLOAD_FOLDER, filename)
-    output_path = os.path.join(MODIFIED_FOLDER, 'modified_' + filename)
+    output_path = os.path.join(MODIFIED_FOLDER, "modified_" + filename)
 
-    # Apply basic modifications: slight speed + pitch change
-    clip = mp.VideoFileClip(input_path).fx(mp.vfx.speedx, 1.05)
-    clip.write_videofile(output_path, audio_codec='aac', logger=None)
+    if not os.path.exists(input_path):
+        return jsonify({'error': 'File not found'}), 404
 
-    return send_file(output_path, mimetype='video/mp4', as_attachment=True)
+    try:
+        clip = VideoFileClip(input_path)
+
+        # Modify: speed up and adjust audio pitch slightly
+        modified_clip = clip.fx(lambda c: c.speedx(1.05)).volumex(1.1)
+        modified_clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
+
+        return send_file(output_path, as_attachment=True)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/')
+def home():
+    return "RemixCleaner backend is running."
+
+if __name__ == '__main__':
+    app.run(debug=True)
