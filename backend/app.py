@@ -1,59 +1,42 @@
-﻿from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify
+from flask_cors import CORS
 import os
-from moviepy.editor import VideoFileClip
-from pydub import AudioSegment
-import tempfile
-import random
+import moviepy.editor as mp
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+CORS(app)
 
-def subtly_modify_audio(audio_path):
-    sound = AudioSegment.from_file(audio_path)
-    # Speed up audio by 2%
-    sound = sound._spawn(sound.raw_data, overrides={
-        "frame_rate": int(sound.frame_rate * 1.02)
-    }).set_frame_rate(sound.frame_rate)
-    # Slight pitch shift by increasing frame rate temporarily
-    return sound
+UPLOAD_FOLDER = 'uploads'
+MODIFIED_FOLDER = 'modified'
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(MODIFIED_FOLDER, exist_ok=True)
 
 @app.route('/')
 def home():
-    return jsonify({"status": "Server running"})
+    return 'Backend running ✅'
 
-@app.route('/remix', methods=['POST'])
-def remix_video():
+@app.route('/upload', methods=['POST'])
+def upload():
     if 'video' not in request.files:
-        return jsonify({"error": "No video file provided"}), 400
+        return jsonify({'error': 'No video file'}), 400
+    video = request.files['video']
+    path = os.path.join(UPLOAD_FOLDER, video.filename)
+    video.save(path)
+    return jsonify({'message': 'Uploaded successfully', 'filename': video.filename})
 
-    video_file = request.files['video']
-    original_path = os.path.join(UPLOAD_FOLDER, video_file.filename)
-    video_file.save(original_path)
+@app.route('/modify', methods=['POST'])
+def modify():
+    data = request.get_json()
+    filename = data.get('filename')
+    if not filename:
+        return jsonify({'error': 'No filename provided'}), 400
 
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            clip = VideoFileClip(original_path)
+    input_path = os.path.join(UPLOAD_FOLDER, filename)
+    output_path = os.path.join(MODIFIED_FOLDER, 'modified_' + filename)
 
-            # Extract audio
-            audio_path = os.path.join(tmpdir, "original_audio.mp3")
-            clip.audio.write_audiofile(audio_path, verbose=False, logger=None)
+    # Apply basic modifications: slight speed + pitch change
+    clip = mp.VideoFileClip(input_path).fx(mp.vfx.speedx, 1.05)
+    clip.write_videofile(output_path, audio_codec='aac', logger=None)
 
-            # Modify audio
-            modified_audio = subtly_modify_audio(audio_path)
-            modified_audio_path = os.path.join(tmpdir, "modified_audio.mp3")
-            modified_audio.export(modified_audio_path, format="mp3")
-
-            # Apply minor visual tweak: small crop + slight brightness
-            w, h = clip.size
-            cropped = clip.crop(x1=2, y1=2, x2=w-2, y2=h-2)
-            final_clip = cropped.set_audio(modified_audio_path).fx(lambda c: c.fl_image(lambda frame: frame * 1.02))
-
-            # Output
-            output_path = os.path.join(tmpdir, "remixed.mp4")
-            final_clip.write_videofile(output_path, codec="libx264", audio_codec="aac", verbose=False, logger=None)
-
-            return send_file(output_path, as_attachment=True)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return send_file(output_path, mimetype='video/mp4', as_attachment=True)
