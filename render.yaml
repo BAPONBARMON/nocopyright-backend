@@ -1,0 +1,7 @@
+﻿services:
+  - type: web
+    name: no-copyright
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
